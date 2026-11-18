@@ -254,21 +254,23 @@ func fetchReply(repo *Repo, wants []string, haves []string, shallow []string, de
 	}
 	key := fetchCacheKey(repo, wants, haveSet, shallowSet, depth, since)
 	var pack []byte
+	var framed []byte
 	var hasPack bool
 	var newShallow map[string]bool
 	if cached, ok := FORGE.PackCache[key]; ok {
-		pack, hasPack, newShallow = cached.pack, cached.hasPack, cached.newShallow
+		pack, framed, hasPack, newShallow = cached.pack, cached.framed, cached.hasPack, cached.newShallow
 	} else {
 		objects, boundary := packForFetch(wants, haveSet, shallowSet, depth, since)
 		if len(objects) > 0 {
 			pack = writePack(objects)
+			framed = sidebandPackets(pack)
 			hasPack = true
 		}
 		newShallow = map[string]bool{}
 		for _, oid := range boundary {
 			newShallow[oid] = true
 		}
-		FORGE.PackCache[key] = &packCacheEntry{pack: pack, hasPack: hasPack, newShallow: newShallow}
+		FORGE.PackCache[key] = &packCacheEntry{pack: pack, framed: framed, hasPack: hasPack, newShallow: newShallow}
 	}
 	if version2 {
 		if !hasPack {
@@ -302,7 +304,7 @@ func fetchReply(repo *Repo, wants []string, haves []string, shallow []string, de
 			body.Write(pktFlush)
 		}
 		body.Write(pktLine([]byte("packfile\n")))
-		body.Write(sidebandPackets(pack))
+		body.Write(framed)
 		body.Write(pktFlush)
 		return Reply{Status: 200, Body: body.Bytes(), ContentType: "application/x-git-upload-pack-result"}
 	}
@@ -334,7 +336,7 @@ func fetchReply(repo *Repo, wants []string, haves []string, shallow []string, de
 		body.Write(pktLine([]byte("NAK\n")))
 	}
 	if hasPack {
-		body.Write(sidebandPackets(pack))
+		body.Write(framed)
 	}
 	body.Write(pktFlush)
 	return Reply{Status: 200, Body: body.Bytes(), ContentType: "application/x-git-upload-pack-result"}
@@ -485,14 +487,7 @@ func receivePackReply(repo *Repo, body []byte) Reply {
 					if STORE.TypeOf(cmd.new) != "commit" {
 						reason = "not a commit"
 					} else if cmd.old != ZERO_OID {
-						found := false
-						for _, anc := range ancestorsOf(cmd.new) {
-							if anc == cmd.old {
-								found = true
-								break
-							}
-						}
-						if !found {
+						if !isAncestor(cmd.new, cmd.old) {
 							reason = "non-fast-forward"
 						}
 					}

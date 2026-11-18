@@ -84,6 +84,10 @@ type packCacheEntry struct {
 	pack       []byte
 	hasPack    bool
 	newShallow map[string]bool
+	// framed is pack pre-wrapped in sideband packets: every fetch of the
+	// same objects sends these exact bytes, so framing once at cache fill
+	// time saves a full copy of the pack on every clone.
+	framed []byte
 }
 
 type Forge struct {

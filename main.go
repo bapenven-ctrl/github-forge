@@ -9,10 +9,21 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"runtime"
+	"runtime/debug"
 	"strings"
 	"sync/atomic"
 	"time"
 )
+
+// The trial pod gives this process 2 CPUs and 1 GB of RAM, but the Go runtime
+// sizes itself from the host's core count, which oversubscribes the scheduler
+// and the GC under the clone workload's 50 concurrent fetches. Pin the
+// runtime to the pod's shape before anything else runs.
+func init() {
+	runtime.GOMAXPROCS(2)
+	debug.SetGCPercent(400)
+}
 
 // ---------------------------------------------------------------------------
 // HTTP server and trial lifecycle. The forge itself lives in the other files;

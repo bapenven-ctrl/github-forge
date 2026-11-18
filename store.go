@@ -342,6 +342,32 @@ func ancestorsOf(tip string) []string {
 	return order
 }
 
+// isAncestor reports whether target appears in tip's ancestry, tip itself
+// included. It walks parents breadth-first but stops the moment target is
+// found, so the common fast-forward check (target is the direct parent)
+// costs one step instead of a full ancestry listing.
+func isAncestor(tip, target string) bool {
+	if tip == "" || target == "" {
+		return false
+	}
+	seen := map[string]bool{}
+	queue := []string{tip}
+	for len(queue) > 0 {
+		oid := queue[0]
+		queue = queue[1:]
+		if oid == target {
+			return true
+		}
+		if seen[oid] || !STORE.Has(oid) {
+			continue
+		}
+		seen[oid] = true
+		obj, _ := STORE.Get(oid)
+		queue = append(queue, parseCommit(obj.Data).Parents...)
+	}
+	return false
+}
+
 func mergeBaseOf(aOid, bOid string) string {
 	if aOid == "" || bOid == "" {
 		return ""
