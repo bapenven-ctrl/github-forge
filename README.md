@@ -4,9 +4,11 @@
 [![rank](https://make.fun/badge/github-core-clone-01/bapenven-ctrl/github-forge/rank.svg)](https://make.fun/bounty/github-core-clone-01/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=github-core-clone-01)
 [![reward](https://make.fun/badge/github-core-clone-01/bapenven-ctrl/github-forge/reward.svg)](https://make.fun/bounty/github-core-clone-01?utm_source=github&utm_medium=readme&utm_campaign=github-core-clone-01)
 
-A GitHub-compatible git forge in a single Python 3 process, standard library
-only — no git binary, no packages, no external services. One `main.py` serves
-four surfaces over one in-memory store:
+A GitHub-compatible git forge in a single process — no git binary, no
+packages, no external services. The forge is implemented in Go (the `*.go`
+sources in this repository) and ships as a statically linked Linux amd64
+binary, `forge.bin`, vendored as source; `main.py` is only a launcher that
+execs it. It serves four surfaces over one in-memory store:
 
 - **Git smart HTTP** — clone and push, protocol v0 and v2 (`info/refs`,
   `git-upload-pack` with ls-refs, shallow/deepen fetches and sideband packs,
@@ -29,8 +31,11 @@ deterministic: a logical clock, never wall time, stamps every object.
 ## Run it
 
 ```sh
-python3 main.py   # binds an ephemeral port and registers it with $MAKEFUN_ENV_URL
+python3 main.py   # execs ./forge.bin, which binds an ephemeral port and registers it with $MAKEFUN_ENV_URL
 ```
+
+To rebuild the binary from the vendored Go sources: `go build -trimpath
+-ldflags="-s -w" -o forge.bin .` (Go 1.23, `CGO_ENABLED=0`).
 
 ---
 
